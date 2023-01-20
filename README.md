@@ -1,2 +1,3 @@
 # puzzlesettingsserver
-A simple implementation of a puzzlesessionservice server calling mongodb to store settings.
+
+A simple implementation of a [puzzlesessionservice](https://github.com/dvaumoron/puzzlesessionservice) server calling [MongoDB](https://www.mongodb.com/) to store settings.
