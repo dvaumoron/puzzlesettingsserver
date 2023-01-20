@@ -31,6 +31,8 @@ import (
 const collectionName = "settings"
 const idKey = "_id"
 
+var optsCreateUnexisting = options.Replace().SetUpsert(true)
+
 // Server is used to implement puzzlesessionservice.SessionServer
 type Server struct {
 	pb.UnimplementedSessionServer
@@ -80,12 +82,11 @@ func (s *Server) UpdateSessionInfo(ctx context.Context, in *pb.SessionUpdate) (*
 			info[k] = v
 		}
 		collection := client.Database(s.databaseName).Collection(collectionName)
-		opts := options.Replace().SetUpsert(true)
 		filter := bson.D{{Key: idKey, Value: in.Id}}
-		_, err = collection.ReplaceOne(ctx, filter, info, opts)
-		if err != nil {
-			errStr = err.Error()
-		}
+		_, err = collection.ReplaceOne(ctx, filter, info, optsCreateUnexisting)
+	}
+	if err != nil {
+		errStr = err.Error()
 	}
 	return &pb.SessionError{Err: errStr}, nil
 }
