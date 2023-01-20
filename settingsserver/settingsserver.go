@@ -29,6 +29,7 @@ import (
 )
 
 const collectionName = "settings"
+const idKey = "_id"
 
 // Server is used to implement puzzlesessionservice.SessionServer
 type Server struct {
@@ -49,22 +50,17 @@ func (s *Server) GetSessionInfo(ctx context.Context, in *pb.SessionId) (*pb.Sess
 	client, err := mongo.Connect(ctx, s.clientOptions)
 	var sessionInfo *pb.SessionInfo
 	if err == nil {
-		defer func() {
-			if err = client.Disconnect(ctx); err != nil {
-				log.Print("Error during Disconnect :", err)
-			}
-		}()
+		defer disconnect(client, ctx)
 
 		collection := client.Database(s.databaseName).Collection(collectionName)
 		var result bson.M
-		err = collection.FindOne(ctx, bson.D{{Key: "id", Value: in.Id}}).Decode(&result)
+		err = collection.FindOne(ctx, bson.D{{Key: idKey, Value: in.Id}}).Decode(&result)
 		if err == nil {
 			info := map[string]string{}
 			for k, v := range result {
 				str, _ := v.(string)
 				info[k] = str
 			}
-
 		} else if err == mongo.ErrNoDocuments {
 			sessionInfo = &pb.SessionInfo{Info: map[string]string{}}
 			err = nil
@@ -77,18 +73,25 @@ func (s *Server) UpdateSessionInfo(ctx context.Context, in *pb.SessionUpdate) (*
 	client, err := mongo.Connect(ctx, s.clientOptions)
 	errStr := ""
 	if err == nil {
-		defer func() {
-			if err = client.Disconnect(ctx); err != nil {
-				log.Print("Error during Disconnect :", err)
-			}
-		}()
+		defer disconnect(client, ctx)
 
-		info := map[string]any{}
+		info := bson.M{}
 		for k, v := range in.Info {
 			info[k] = v
 		}
 		collection := client.Database(s.databaseName).Collection(collectionName)
-		// TODO
+		opts := options.Replace().SetUpsert(true)
+		filter := bson.D{{Key: idKey, Value: in.Id}}
+		_, err = collection.ReplaceOne(ctx, filter, info, opts)
+		if err != nil {
+			errStr = err.Error()
+		}
 	}
 	return &pb.SessionError{Err: errStr}, nil
+}
+
+func disconnect(client *mongo.Client, ctx context.Context) {
+	if err := client.Disconnect(ctx); err != nil {
+		log.Print("Error during Disconnect :", err)
+	}
 }
