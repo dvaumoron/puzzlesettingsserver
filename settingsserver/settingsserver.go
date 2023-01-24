@@ -33,62 +33,64 @@ const idKey = "_id"
 
 var optsCreateUnexisting = options.Replace().SetUpsert(true)
 
-// Server is used to implement puzzlesessionservice.SessionServer
-type Server struct {
+// server is used to implement puzzlesessionservice.SessionServer
+type server struct {
 	pb.UnimplementedSessionServer
 	clientOptions *options.ClientOptions
 	databaseName  string
 }
 
-func New(clientOptions *options.ClientOptions, databaseName string) *Server {
-	return &Server{clientOptions: clientOptions, databaseName: databaseName}
+func New(clientOptions *options.ClientOptions, databaseName string) pb.SessionServer {
+	return &server{clientOptions: clientOptions, databaseName: databaseName}
 }
 
-func (s *Server) Generate(ctx context.Context, in *pb.SessionInfo) (*pb.SessionId, error) {
+func (s *server) Generate(ctx context.Context, in *pb.SessionInfo) (*pb.SessionId, error) {
 	return nil, errors.New("method Generate not supported")
 }
 
-func (s *Server) GetSessionInfo(ctx context.Context, in *pb.SessionId) (*pb.SessionInfo, error) {
+func (s *server) GetSessionInfo(ctx context.Context, in *pb.SessionId) (*pb.SessionInfo, error) {
 	client, err := mongo.Connect(ctx, s.clientOptions)
-	var sessionInfo *pb.SessionInfo
-	if err == nil {
-		defer disconnect(client, ctx)
-
-		collection := client.Database(s.databaseName).Collection(collectionName)
-		var result bson.M
-		err = collection.FindOne(ctx, bson.D{{Key: idKey, Value: in.Id}}).Decode(&result)
-		if err == nil {
-			info := map[string]string{}
-			for k, v := range result {
-				str, _ := v.(string)
-				info[k] = str
-			}
-		} else if err == mongo.ErrNoDocuments {
-			sessionInfo = &pb.SessionInfo{Info: map[string]string{}}
-			err = nil
-		}
+	if err != nil {
+		return nil, err
 	}
-	return sessionInfo, err
+	defer disconnect(client, ctx)
+
+	collection := client.Database(s.databaseName).Collection(collectionName)
+	var result bson.M
+	err = collection.FindOne(ctx, bson.D{{Key: idKey, Value: in.Id}}).Decode(&result)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return &pb.SessionInfo{Info: map[string]string{}}, nil
+		}
+		return nil, err
+	}
+
+	info := map[string]string{}
+	for k, v := range result {
+		str, _ := v.(string)
+		info[k] = str
+	}
+	return &pb.SessionInfo{Info: info}, nil
 }
 
-func (s *Server) UpdateSessionInfo(ctx context.Context, in *pb.SessionUpdate) (*pb.SessionError, error) {
+func (s *server) UpdateSessionInfo(ctx context.Context, in *pb.SessionUpdate) (*pb.SessionError, error) {
 	client, err := mongo.Connect(ctx, s.clientOptions)
-	errStr := ""
-	if err == nil {
-		defer disconnect(client, ctx)
-
-		info := bson.M{}
-		for k, v := range in.Info {
-			info[k] = v
-		}
-		collection := client.Database(s.databaseName).Collection(collectionName)
-		filter := bson.D{{Key: idKey, Value: in.Id}}
-		_, err = collection.ReplaceOne(ctx, filter, info, optsCreateUnexisting)
-	}
 	if err != nil {
-		errStr = err.Error()
+		return nil, err
 	}
-	return &pb.SessionError{Err: errStr}, nil
+	defer disconnect(client, ctx)
+
+	info := bson.M{}
+	for k, v := range in.Info {
+		info[k] = v
+	}
+	collection := client.Database(s.databaseName).Collection(collectionName)
+	filter := bson.D{{Key: idKey, Value: in.Id}}
+	_, err = collection.ReplaceOne(ctx, filter, info, optsCreateUnexisting)
+	if err != nil {
+		return &pb.SessionError{Err: err.Error()}, nil
+	}
+	return &pb.SessionError{}, nil
 }
 
 func disconnect(client *mongo.Client, ctx context.Context) {
