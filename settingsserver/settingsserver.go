@@ -29,7 +29,6 @@ import (
 )
 
 const collectionName = "settings"
-const idKey = "_id"
 
 var optsCreateUnexisting = options.Replace().SetUpsert(true)
 
@@ -41,14 +40,14 @@ type server struct {
 }
 
 func New(clientOptions *options.ClientOptions, databaseName string) pb.SessionServer {
-	return &server{clientOptions: clientOptions, databaseName: databaseName}
+	return server{clientOptions: clientOptions, databaseName: databaseName}
 }
 
-func (s *server) Generate(ctx context.Context, in *pb.SessionInfo) (*pb.SessionId, error) {
+func (s server) Generate(ctx context.Context, in *pb.SessionInfo) (*pb.SessionId, error) {
 	return nil, errors.New("method Generate not supported")
 }
 
-func (s *server) GetSessionInfo(ctx context.Context, in *pb.SessionId) (*pb.SessionInfo, error) {
+func (s server) GetSessionInfo(ctx context.Context, in *pb.SessionId) (*pb.SessionInfo, error) {
 	client, err := mongo.Connect(ctx, s.clientOptions)
 	if err != nil {
 		return nil, err
@@ -57,7 +56,7 @@ func (s *server) GetSessionInfo(ctx context.Context, in *pb.SessionId) (*pb.Sess
 
 	collection := client.Database(s.databaseName).Collection(collectionName)
 	var result bson.M
-	err = collection.FindOne(ctx, bson.D{{Key: idKey, Value: in.Id}}).Decode(&result)
+	err = collection.FindOne(ctx, idFilter(in.Id)).Decode(&result)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return &pb.SessionInfo{Info: map[string]string{}}, nil
@@ -73,7 +72,7 @@ func (s *server) GetSessionInfo(ctx context.Context, in *pb.SessionId) (*pb.Sess
 	return &pb.SessionInfo{Info: info}, nil
 }
 
-func (s *server) UpdateSessionInfo(ctx context.Context, in *pb.SessionUpdate) (*pb.SessionError, error) {
+func (s server) UpdateSessionInfo(ctx context.Context, in *pb.SessionUpdate) (*pb.SessionError, error) {
 	client, err := mongo.Connect(ctx, s.clientOptions)
 	if err != nil {
 		return nil, err
@@ -85,8 +84,7 @@ func (s *server) UpdateSessionInfo(ctx context.Context, in *pb.SessionUpdate) (*
 		info[k] = v
 	}
 	collection := client.Database(s.databaseName).Collection(collectionName)
-	filter := bson.D{{Key: idKey, Value: in.Id}}
-	_, err = collection.ReplaceOne(ctx, filter, info, optsCreateUnexisting)
+	_, err = collection.ReplaceOne(ctx, idFilter(in.Id), info, optsCreateUnexisting)
 	if err != nil {
 		return &pb.SessionError{Err: err.Error()}, nil
 	}
@@ -97,4 +95,8 @@ func disconnect(client *mongo.Client, ctx context.Context) {
 	if err := client.Disconnect(ctx); err != nil {
 		log.Print("Error during Disconnect :", err)
 	}
+}
+
+func idFilter(id uint64) bson.D {
+	return bson.D{{Key: "_id", Value: id}}
 }
