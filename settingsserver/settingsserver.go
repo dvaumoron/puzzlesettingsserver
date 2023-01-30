@@ -30,6 +30,8 @@ import (
 
 const collectionName = "settings"
 
+const mongoCallMsg = "Failed during MongoDB call :"
+
 var errInternal = errors.New("internal service error")
 
 var optsCreateUnexisting = options.Replace().SetUpsert(true)
@@ -52,7 +54,7 @@ func (s server) Generate(ctx context.Context, in *pb.SessionInfo) (*pb.SessionId
 func (s server) GetSessionInfo(ctx context.Context, in *pb.SessionId) (*pb.SessionInfo, error) {
 	client, err := mongo.Connect(ctx, s.clientOptions)
 	if err != nil {
-		logError(err)
+		log.Println(mongoCallMsg, err)
 		return nil, errInternal
 	}
 	defer disconnect(client, ctx)
@@ -64,7 +66,7 @@ func (s server) GetSessionInfo(ctx context.Context, in *pb.SessionId) (*pb.Sessi
 		if err == mongo.ErrNoDocuments {
 			return &pb.SessionInfo{Info: map[string]string{}}, nil
 		}
-		logError(err)
+		log.Println(mongoCallMsg, err)
 		return nil, errInternal
 	}
 
@@ -79,7 +81,7 @@ func (s server) GetSessionInfo(ctx context.Context, in *pb.SessionId) (*pb.Sessi
 func (s server) UpdateSessionInfo(ctx context.Context, in *pb.SessionUpdate) (*pb.Response, error) {
 	client, err := mongo.Connect(ctx, s.clientOptions)
 	if err != nil {
-		logError(err)
+		log.Println(mongoCallMsg, err)
 		return nil, errInternal
 	}
 	defer disconnect(client, ctx)
@@ -91,7 +93,7 @@ func (s server) UpdateSessionInfo(ctx context.Context, in *pb.SessionUpdate) (*p
 	collection := client.Database(s.databaseName).Collection(collectionName)
 	_, err = collection.ReplaceOne(ctx, idFilter(in.Id), info, optsCreateUnexisting)
 	if err != nil {
-		logError(err)
+		log.Println(mongoCallMsg, err)
 		return nil, errInternal
 	}
 	return &pb.Response{Success: true}, nil
@@ -105,8 +107,4 @@ func disconnect(client *mongo.Client, ctx context.Context) {
 
 func idFilter(id uint64) bson.D {
 	return bson.D{{Key: "_id", Value: id}}
-}
-
-func logError(err error) {
-	log.Println("Failed during MongoDB call :", err)
 }
