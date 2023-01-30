@@ -30,6 +30,8 @@ import (
 
 const collectionName = "settings"
 
+var errInternal = errors.New("internal service error")
+
 var optsCreateUnexisting = options.Replace().SetUpsert(true)
 
 // server is used to implement puzzlesessionservice.SessionServer
@@ -50,7 +52,8 @@ func (s server) Generate(ctx context.Context, in *pb.SessionInfo) (*pb.SessionId
 func (s server) GetSessionInfo(ctx context.Context, in *pb.SessionId) (*pb.SessionInfo, error) {
 	client, err := mongo.Connect(ctx, s.clientOptions)
 	if err != nil {
-		return nil, err
+		logError(err)
+		return nil, errInternal
 	}
 	defer disconnect(client, ctx)
 
@@ -61,7 +64,8 @@ func (s server) GetSessionInfo(ctx context.Context, in *pb.SessionId) (*pb.Sessi
 		if err == mongo.ErrNoDocuments {
 			return &pb.SessionInfo{Info: map[string]string{}}, nil
 		}
-		return nil, err
+		logError(err)
+		return nil, errInternal
 	}
 
 	info := map[string]string{}
@@ -72,10 +76,11 @@ func (s server) GetSessionInfo(ctx context.Context, in *pb.SessionId) (*pb.Sessi
 	return &pb.SessionInfo{Info: info}, nil
 }
 
-func (s server) UpdateSessionInfo(ctx context.Context, in *pb.SessionUpdate) (*pb.SessionError, error) {
+func (s server) UpdateSessionInfo(ctx context.Context, in *pb.SessionUpdate) (*pb.Response, error) {
 	client, err := mongo.Connect(ctx, s.clientOptions)
 	if err != nil {
-		return nil, err
+		logError(err)
+		return nil, errInternal
 	}
 	defer disconnect(client, ctx)
 
@@ -86,17 +91,22 @@ func (s server) UpdateSessionInfo(ctx context.Context, in *pb.SessionUpdate) (*p
 	collection := client.Database(s.databaseName).Collection(collectionName)
 	_, err = collection.ReplaceOne(ctx, idFilter(in.Id), info, optsCreateUnexisting)
 	if err != nil {
-		return &pb.SessionError{Err: err.Error()}, nil
+		logError(err)
+		return nil, errInternal
 	}
-	return &pb.SessionError{}, nil
+	return &pb.Response{Success: true}, nil
 }
 
 func disconnect(client *mongo.Client, ctx context.Context) {
 	if err := client.Disconnect(ctx); err != nil {
-		log.Print("Error during Disconnect :", err)
+		log.Print("Error during MongoDB disconnect :", err)
 	}
 }
 
 func idFilter(id uint64) bson.D {
 	return bson.D{{Key: "_id", Value: id}}
+}
+
+func logError(err error) {
+	log.Println("Failed during MongoDB call :", err)
 }
