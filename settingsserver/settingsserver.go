@@ -30,10 +30,14 @@ import (
 
 const collectionName = "settings"
 
+const idKey = "userId"
+const settingsKey = collectionName // currently the same
+
 const mongoCallMsg = "Failed during MongoDB call :"
 
 var errInternal = errors.New("internal service error")
 
+var optsOnlySettingsField = options.FindOne().SetProjection(bson.D{{Key: settingsKey, Value: true}})
 var optsCreateUnexisting = options.Replace().SetUpsert(true)
 
 // server is used to implement puzzlesessionservice.SessionServer
@@ -60,8 +64,10 @@ func (s server) GetSessionInfo(ctx context.Context, in *pb.SessionId) (*pb.Sessi
 	defer disconnect(client, ctx)
 
 	collection := client.Database(s.databaseName).Collection(collectionName)
-	var result bson.M
-	err = collection.FindOne(ctx, idFilter(in.Id)).Decode(&result)
+	var result bson.D
+	err = collection.FindOne(
+		ctx, bson.D{{Key: idKey, Value: in.Id}}, optsOnlySettingsField,
+	).Decode(&result)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return &pb.SessionInfo{Info: map[string]string{}}, nil
@@ -71,9 +77,10 @@ func (s server) GetSessionInfo(ctx context.Context, in *pb.SessionId) (*pb.Sessi
 	}
 
 	info := map[string]string{}
-	for k, v := range result {
-		str, _ := v.(string)
-		info[k] = str
+	settings, _ := result[0].Value.(bson.D)
+	for _, e := range settings {
+		str, _ := e.Value.(string)
+		info[e.Key] = str
 	}
 	return &pb.SessionInfo{Info: info}, nil
 }
@@ -86,12 +93,16 @@ func (s server) UpdateSessionInfo(ctx context.Context, in *pb.SessionUpdate) (*p
 	}
 	defer disconnect(client, ctx)
 
+	id := in.Id
 	info := bson.M{}
 	for k, v := range in.Info {
 		info[k] = v
 	}
+	settings := bson.D{{Key: idKey, Value: id}, {Key: settingsKey, Value: info}}
 	collection := client.Database(s.databaseName).Collection(collectionName)
-	_, err = collection.ReplaceOne(ctx, idFilter(in.Id), info, optsCreateUnexisting)
+	_, err = collection.ReplaceOne(
+		ctx, bson.D{{Key: idKey, Value: id}}, settings, optsCreateUnexisting,
+	)
 	if err != nil {
 		log.Println(mongoCallMsg, err)
 		return nil, errInternal
@@ -103,8 +114,4 @@ func disconnect(client *mongo.Client, ctx context.Context) {
 	if err := client.Disconnect(ctx); err != nil {
 		log.Print("Error during MongoDB disconnect :", err)
 	}
-}
-
-func idFilter(id uint64) bson.D {
-	return bson.D{{Key: "_id", Value: id}}
 }
