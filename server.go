@@ -22,8 +22,8 @@ import (
 	"net"
 	"os"
 
+	mongoclient "github.com/dvaumoron/puzzlemongoclient"
 	pb "github.com/dvaumoron/puzzlesessionservice"
-	"github.com/dvaumoron/puzzlesettingsserver/mongoclient"
 	"github.com/dvaumoron/puzzlesettingsserver/settingsserver"
 	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
