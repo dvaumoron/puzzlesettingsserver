@@ -77,6 +77,7 @@ func (s server) GetSessionInfo(ctx context.Context, in *pb.SessionId) (*pb.Sessi
 	}
 
 	info := map[string]string{}
+	// can call [0] car result has only one field
 	settings, _ := result[0].Value.(bson.D)
 	for _, e := range settings {
 		str, _ := e.Value.(string)
@@ -98,7 +99,7 @@ func (s server) UpdateSessionInfo(ctx context.Context, in *pb.SessionUpdate) (*p
 	for k, v := range in.Info {
 		info[k] = v
 	}
-	settings := bson.D{{Key: idKey, Value: id}, {Key: settingsKey, Value: info}}
+	settings := bson.M{idKey: id, settingsKey: info}
 	collection := client.Database(s.databaseName).Collection(collectionName)
 	_, err = collection.ReplaceOne(
 		ctx, bson.D{{Key: idKey, Value: id}}, settings, optsCreateUnexisting,
