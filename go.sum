@@ -1,8 +1,8 @@
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/dvaumoron/puzzlemongoclient v1.1.0 h1:zx4Jn9QMW04JJZaqgKaoasLra3ssEwlYIR8xQmpVTyo=
-github.com/dvaumoron/puzzlemongoclient v1.1.0/go.mod h1:fG20tS3AWGfNv7GI7B+CeeUKm6bOMLKSXvC9+6uIYW8=
+github.com/dvaumoron/puzzlemongoclient v1.2.0 h1:EHNcCqglSk2EBfk9lvop294e67M8KltWDQUoUx0F34s=
+github.com/dvaumoron/puzzlemongoclient v1.2.0/go.mod h1:zfhBYSXl0S0w4EzOk3Y1fRAs18Rppd58STndDEUHG80=
 github.com/dvaumoron/puzzlesessionservice v1.2.0 h1:SHAZnBgSyCtyLJI69lQIX+MbKoR3vv+/PO4m5hafymQ=
 github.com/dvaumoron/puzzlesessionservice v1.2.0/go.mod h1:VB2EkzytHS7t6A6pCRl/Pu80VnwHcGlRNcXx9Zkmicg=
 github.com/golang/protobuf v1.5.0/go.mod h1:FsONVRAS9T7sI+LIUmWTfcYkHO4aIWwzhcaSAoJOfIk=

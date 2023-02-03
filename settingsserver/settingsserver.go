@@ -52,11 +52,11 @@ func New(clientOptions *options.ClientOptions, databaseName string) pb.SessionSe
 	return server{clientOptions: clientOptions, databaseName: databaseName}
 }
 
-func (s server) Generate(ctx context.Context, in *pb.SessionInfo) (*pb.SessionId, error) {
+func (server) Generate(context.Context, *pb.SessionInfo) (*pb.SessionId, error) {
 	return nil, errors.New("method Generate not supported")
 }
 
-func (s server) GetSessionInfo(ctx context.Context, in *pb.SessionId) (*pb.SessionInfo, error) {
+func (s server) GetSessionInfo(ctx context.Context, request *pb.SessionId) (*pb.SessionInfo, error) {
 	client, err := mongo.Connect(ctx, s.clientOptions)
 	if err != nil {
 		log.Println(mongoCallMsg, err)
@@ -67,7 +67,7 @@ func (s server) GetSessionInfo(ctx context.Context, in *pb.SessionId) (*pb.Sessi
 	collection := client.Database(s.databaseName).Collection(collectionName)
 	var result bson.D
 	err = collection.FindOne(
-		ctx, bson.D{{Key: userIdKey, Value: in.Id}}, optsOnlySettingsField,
+		ctx, bson.D{{Key: userIdKey, Value: request.Id}}, optsOnlySettingsField,
 	).Decode(&result)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -77,16 +77,11 @@ func (s server) GetSessionInfo(ctx context.Context, in *pb.SessionId) (*pb.Sessi
 		return nil, errInternal
 	}
 
-	info := map[string]string{}
-	// can call [0] because result has only one field
-	settings, _ := result[0].Value.(bson.D)
-	for _, e := range settings {
-		info[e.Key], _ = e.Value.(string)
-	}
-	return &pb.SessionInfo{Info: info}, nil
+	// can call [0] to get settings because result has only one field
+	return &pb.SessionInfo{Info: mongoclient.ExtractStringMap(result[0].Value)}, nil
 }
 
-func (s server) UpdateSessionInfo(ctx context.Context, in *pb.SessionUpdate) (*pb.Response, error) {
+func (s server) UpdateSessionInfo(ctx context.Context, request *pb.SessionUpdate) (*pb.Response, error) {
 	client, err := mongo.Connect(ctx, s.clientOptions)
 	if err != nil {
 		log.Println(mongoCallMsg, err)
@@ -94,12 +89,8 @@ func (s server) UpdateSessionInfo(ctx context.Context, in *pb.SessionUpdate) (*p
 	}
 	defer mongoclient.Disconnect(client, ctx)
 
-	id := in.Id
-	info := bson.M{}
-	for k, v := range in.Info {
-		info[k] = v
-	}
-	settings := bson.M{userIdKey: id, settingsKey: info}
+	id := request.Id
+	settings := bson.M{userIdKey: id, settingsKey: request.Info}
 	collection := client.Database(s.databaseName).Collection(collectionName)
 	_, err = collection.ReplaceOne(
 		ctx, bson.D{{Key: userIdKey, Value: id}}, settings, optsCreateUnexisting,
