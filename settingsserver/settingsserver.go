@@ -22,6 +22,7 @@ import (
 	"errors"
 	"log"
 
+	mongoclient "github.com/dvaumoron/puzzlemongoclient"
 	pb "github.com/dvaumoron/puzzlesessionservice"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -30,7 +31,7 @@ import (
 
 const collectionName = "settings"
 
-const idKey = "userId"
+const userIdKey = "userId"
 const settingsKey = collectionName // currently the same
 
 const mongoCallMsg = "Failed during MongoDB call :"
@@ -61,12 +62,12 @@ func (s server) GetSessionInfo(ctx context.Context, in *pb.SessionId) (*pb.Sessi
 		log.Println(mongoCallMsg, err)
 		return nil, errInternal
 	}
-	defer disconnect(client, ctx)
+	defer mongoclient.Disconnect(client, ctx)
 
 	collection := client.Database(s.databaseName).Collection(collectionName)
 	var result bson.D
 	err = collection.FindOne(
-		ctx, bson.D{{Key: idKey, Value: in.Id}}, optsOnlySettingsField,
+		ctx, bson.D{{Key: userIdKey, Value: in.Id}}, optsOnlySettingsField,
 	).Decode(&result)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -92,27 +93,21 @@ func (s server) UpdateSessionInfo(ctx context.Context, in *pb.SessionUpdate) (*p
 		log.Println(mongoCallMsg, err)
 		return nil, errInternal
 	}
-	defer disconnect(client, ctx)
+	defer mongoclient.Disconnect(client, ctx)
 
 	id := in.Id
 	info := bson.M{}
 	for k, v := range in.Info {
 		info[k] = v
 	}
-	settings := bson.M{idKey: id, settingsKey: info}
+	settings := bson.M{userIdKey: id, settingsKey: info}
 	collection := client.Database(s.databaseName).Collection(collectionName)
 	_, err = collection.ReplaceOne(
-		ctx, bson.D{{Key: idKey, Value: id}}, settings, optsCreateUnexisting,
+		ctx, bson.D{{Key: userIdKey, Value: id}}, settings, optsCreateUnexisting,
 	)
 	if err != nil {
 		log.Println(mongoCallMsg, err)
 		return nil, errInternal
 	}
 	return &pb.Response{Success: true}, nil
-}
-
-func disconnect(client *mongo.Client, ctx context.Context) {
-	if err := client.Disconnect(ctx); err != nil {
-		log.Print("Error during MongoDB disconnect :", err)
-	}
 }
