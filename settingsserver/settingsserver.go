@@ -73,6 +73,7 @@ func (s server) GetSessionInfo(ctx context.Context, request *pb.SessionId) (*pb.
 		if err == mongo.ErrNoDocuments {
 			return &pb.SessionInfo{Info: map[string]string{}}, nil
 		}
+
 		log.Println(mongoCallMsg, err)
 		return nil, errInternal
 	}
