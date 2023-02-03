@@ -81,8 +81,7 @@ func (s server) GetSessionInfo(ctx context.Context, in *pb.SessionId) (*pb.Sessi
 	// can call [0] because result has only one field
 	settings, _ := result[0].Value.(bson.D)
 	for _, e := range settings {
-		str, _ := e.Value.(string)
-		info[e.Key] = str
+		info[e.Key], _ = e.Value.(string)
 	}
 	return &pb.SessionInfo{Info: info}, nil
 }
