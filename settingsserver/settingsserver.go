@@ -78,8 +78,8 @@ func (s server) GetSessionInfo(ctx context.Context, request *pb.SessionId) (*pb.
 		return nil, errInternal
 	}
 
-	// can call [0] to get settings because result has only one field
-	return &pb.SessionInfo{Info: mongoclient.ExtractStringMap(result[0].Value)}, nil
+	// call [1] to get picture because result has only the id and one field
+	return &pb.SessionInfo{Info: mongoclient.ExtractStringMap(result[1].Value)}, nil
 }
 
 func (s server) UpdateSessionInfo(ctx context.Context, request *pb.SessionUpdate) (*pb.Response, error) {
