@@ -25,7 +25,8 @@ import (
 )
 
 func main() {
-	s := grpcserver.New()
-	pb.RegisterSessionServer(s, settingsserver.New(mongoclient.Create()))
+	s := grpcserver.Make()
+	clientOptions, databaseName := mongoclient.Create()
+	pb.RegisterSessionServer(s, settingsserver.New(clientOptions, databaseName, s.Logger))
 	s.Start()
 }
