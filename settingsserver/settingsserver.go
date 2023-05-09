@@ -30,6 +30,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const SettingsKey = "puzzleSettings"
+
 const collectionName = "settings"
 
 const userIdKey = "userId"

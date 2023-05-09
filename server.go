@@ -30,7 +30,7 @@ import (
 var version string
 
 func main() {
-	s := grpcserver.Make("", version)
+	s := grpcserver.Make(settingsserver.SettingsKey, version)
 	clientOptions, databaseName := mongoclient.Create()
 	pb.RegisterSessionServer(s, settingsserver.New(clientOptions, databaseName, s.Logger))
 	s.Start()
