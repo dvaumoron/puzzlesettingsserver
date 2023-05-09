@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-go install
+./build/build.sh
 
 buildah from --name puzzlesettingsserver-working-container scratch
 buildah copy puzzlesettingsserver-working-container $HOME/go/bin/puzzlesettingsserver /bin/puzzlesettingsserver

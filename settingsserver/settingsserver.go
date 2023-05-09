@@ -23,6 +23,7 @@ import (
 
 	mongoclient "github.com/dvaumoron/puzzlemongoclient"
 	pb "github.com/dvaumoron/puzzlesessionservice"
+	"github.com/uptrace/opentelemetry-go-extra/otelzap"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -46,10 +47,10 @@ type server struct {
 	pb.UnimplementedSessionServer
 	clientOptions *options.ClientOptions
 	databaseName  string
-	logger        *zap.Logger
+	logger        *otelzap.Logger
 }
 
-func New(clientOptions *options.ClientOptions, databaseName string, logger *zap.Logger) pb.SessionServer {
+func New(clientOptions *options.ClientOptions, databaseName string, logger *otelzap.Logger) pb.SessionServer {
 	return server{clientOptions: clientOptions, databaseName: databaseName, logger: logger}
 }
 
@@ -58,12 +59,13 @@ func (server) Generate(context.Context, *pb.SessionInfo) (*pb.SessionId, error) 
 }
 
 func (s server) GetSessionInfo(ctx context.Context, request *pb.SessionId) (*pb.SessionInfo, error) {
+	logger := s.logger.Ctx(ctx)
 	client, err := mongo.Connect(ctx, s.clientOptions)
 	if err != nil {
-		s.logger.Error(mongoCallMsg, zap.Error(err))
+		logger.Error(mongoCallMsg, zap.Error(err))
 		return nil, errInternal
 	}
-	defer mongoclient.Disconnect(client, s.logger, ctx)
+	defer mongoclient.Disconnect(client, logger)
 
 	collection := client.Database(s.databaseName).Collection(collectionName)
 	var result bson.D
@@ -75,7 +77,7 @@ func (s server) GetSessionInfo(ctx context.Context, request *pb.SessionId) (*pb.
 			return &pb.SessionInfo{Info: map[string]string{}}, nil
 		}
 
-		s.logger.Error(mongoCallMsg, zap.Error(err))
+		logger.Error(mongoCallMsg, zap.Error(err))
 		return nil, errInternal
 	}
 
@@ -84,12 +86,13 @@ func (s server) GetSessionInfo(ctx context.Context, request *pb.SessionId) (*pb.
 }
 
 func (s server) UpdateSessionInfo(ctx context.Context, request *pb.SessionUpdate) (*pb.Response, error) {
+	logger := s.logger.Ctx(ctx)
 	client, err := mongo.Connect(ctx, s.clientOptions)
 	if err != nil {
-		s.logger.Error(mongoCallMsg, zap.Error(err))
+		logger.Error(mongoCallMsg, zap.Error(err))
 		return nil, errInternal
 	}
-	defer mongoclient.Disconnect(client, s.logger, ctx)
+	defer mongoclient.Disconnect(client, logger)
 
 	id := request.Id
 	settings := bson.M{userIdKey: id, settingsKey: request.Info}
@@ -98,7 +101,7 @@ func (s server) UpdateSessionInfo(ctx context.Context, request *pb.SessionUpdate
 		ctx, bson.D{{Key: userIdKey, Value: id}}, settings, optsCreateUnexisting,
 	)
 	if err != nil {
-		s.logger.Error(mongoCallMsg, zap.Error(err))
+		logger.Error(mongoCallMsg, zap.Error(err))
 		return nil, errInternal
 	}
 	return &pb.Response{Success: true}, nil
